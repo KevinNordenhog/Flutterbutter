@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_application/database_helper.dart';
+import 'package:flutter_application/pages/assign_groups_page.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -7,15 +9,36 @@ class Person {
   final int? id;
   final String name;
   final String email;
+  List<int> groupIds;
 
-  Person({this.id, required this.name, required this.email});
+  Person({
+    this.id,
+    required this.name,
+    required this.email,
+    List<int>? groupIds,
+  }) : groupIds = groupIds ?? [];
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
       'email': email,
+      'groupIds': groupIds.join(','),
     };
+  }
+
+  static Person fromMap(Map<String, dynamic> map) {
+    return Person(
+      id: map['id'],
+      name: map['name'],
+      email: map['email'],
+      groupIds: (map['groupIds'] as String?)
+              ?.split(',')
+              .where((e) => e.isNotEmpty)
+              .map<int>((e) => int.parse(e))
+              .toList() ??
+          [],
+    );
   }
 }
 
@@ -38,28 +61,14 @@ class _PeoplePageState extends State<PeoplePage> {
   }
 
   Future<void> _initDatabase() async {
-    _database = await openDatabase(
-      join(await getDatabasesPath(), 'people_database.db'),
-      onCreate: (db, version) {
-        return db.execute(
-          'CREATE TABLE people(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)',
-        );
-      },
-      version: 1,
-    );
+    _database = await DatabaseHelper.initializeDatabase();
     _loadPeople();
   }
 
   Future<void> _loadPeople() async {
     final List<Map<String, dynamic>> maps = await _database.query('people');
     setState(() {
-      _people = List.generate(maps.length, (i) {
-        return Person(
-          id: maps[i]['id'],
-          name: maps[i]['name'],
-          email: maps[i]['email'],
-        );
-      });
+      _people = List.generate(maps.length, (i) => Person.fromMap(maps[i]));
     });
   }
 
@@ -72,11 +81,12 @@ class _PeoplePageState extends State<PeoplePage> {
     _loadPeople();
   }
 
-  Future<void> _deletePerson(int id) async {
-    await _database.delete(
+  Future<void> _updatePerson(Person person) async {
+    await _database.update(
       'people',
+      person.toMap(),
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [person.id],
     );
     _loadPeople();
   }
@@ -109,6 +119,15 @@ class _PeoplePageState extends State<PeoplePage> {
   //   );
   // }
 
+  Future<void> _deletePerson(int id) async {
+    await _database.delete(
+      'people',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    _loadPeople();
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredPeople = _getFilteredPeople();
@@ -140,7 +159,24 @@ class _PeoplePageState extends State<PeoplePage> {
                 return ListTile(
                   title: Text(person.name),
                   subtitle: Text(person.email),
-                  // onTap: () => _showPersonDetails(person),
+                  onTap: () async {
+                    final updatedPerson = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AssignGroupsPage(person: person),
+                      ),
+                    );
+                    if (updatedPerson != null) {
+                      setState(() {
+                        final index =
+                            _people.indexWhere((p) => p.id == updatedPerson.id);
+                        if (index != -1) {
+                          _people[index] = updatedPerson;
+                        }
+                      });
+                      _loadPeople(); // Refresh the list from the database
+                    }
+                  },
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
                     onPressed: () => _deletePerson(person.id!),

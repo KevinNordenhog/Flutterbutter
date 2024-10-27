@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/database_helper.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
 
@@ -13,6 +14,13 @@ class Group {
       'id': id,
       'name': name,
     };
+  }
+
+  static Group fromMap(Map<String, dynamic> map) {
+    return Group(
+      id: map['id'],
+      name: map['name'],
+    );
   }
 }
 
@@ -34,15 +42,7 @@ class _GroupsPageState extends State<GroupsPage> {
   }
 
   Future<void> _initDatabase() async {
-    _database = await openDatabase(
-      path.join(await getDatabasesPath(), 'groups_database.db'),
-      onCreate: (db, version) {
-        return db.execute(
-          'CREATE TABLE groups(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)',
-        );
-      },
-      version: 1,
-    );
+    _database = await DatabaseHelper.initializeDatabase();
     _loadGroups();
   }
 
