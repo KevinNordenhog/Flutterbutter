@@ -1,42 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/database_helper.dart';
+import 'package:flutter_application/models/person.dart';
 import 'package:flutter_application/pages/assign_groups_page.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-
-class Person {
-  final int? id;
-  final String name;
-  List<int> groupIds;
-
-  Person({
-    this.id,
-    required this.name,
-    List<int>? groupIds,
-  }) : groupIds = groupIds ?? [];
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'groupIds': groupIds.join(','),
-    };
-  }
-
-  static Person fromMap(Map<String, dynamic> map) {
-    return Person(
-      id: map['id'],
-      name: map['name'],
-      groupIds: (map['groupIds'] as String?)
-              ?.split(',')
-              .where((e) => e.isNotEmpty)
-              .map<int>((e) => int.parse(e))
-              .toList() ??
-          [],
-    );
-  }
-}
 
 class PeoplePage extends StatefulWidget {
   const PeoplePage({Key? key}) : super(key: key);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/database_helper.dart';
+import 'package:flutter_application/pages/group_page.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path;
 
@@ -126,6 +127,14 @@ class _GroupsPageState extends State<GroupsPage> {
                     icon: const Icon(Icons.delete),
                     onPressed: () => _deleteGroup(group.id!),
                   ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GroupPage(group: group),
+                      ),
+                    );
+                  },
                 );
               },
             ),
