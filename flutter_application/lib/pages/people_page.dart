@@ -8,13 +8,11 @@ import 'package:path/path.dart';
 class Person {
   final int? id;
   final String name;
-  final String email;
   List<int> groupIds;
 
   Person({
     this.id,
     required this.name,
-    required this.email,
     List<int>? groupIds,
   }) : groupIds = groupIds ?? [];
 
@@ -22,7 +20,6 @@ class Person {
     return {
       'id': id,
       'name': name,
-      'email': email,
       'groupIds': groupIds.join(','),
     };
   }
@@ -31,7 +28,6 @@ class Person {
     return Person(
       id: map['id'],
       name: map['name'],
-      email: map['email'],
       groupIds: (map['groupIds'] as String?)
               ?.split(',')
               .where((e) => e.isNotEmpty)
@@ -94,8 +90,7 @@ class _PeoplePageState extends State<PeoplePage> {
   List<Person> _getFilteredPeople() {
     return _people
         .where((person) =>
-            person.name.toLowerCase().contains(_filter.toLowerCase()) ||
-            person.email.toLowerCase().contains(_filter.toLowerCase()))
+            person.name.toLowerCase().contains(_filter.toLowerCase()))
         .toList();
   }
 
@@ -158,7 +153,6 @@ class _PeoplePageState extends State<PeoplePage> {
                 final person = filteredPeople[index];
                 return ListTile(
                   title: Text(person.name),
-                  subtitle: Text(person.email),
                   onTap: () async {
                     final updatedPerson = await Navigator.push(
                       context,
@@ -174,7 +168,7 @@ class _PeoplePageState extends State<PeoplePage> {
                           _people[index] = updatedPerson;
                         }
                       });
-                      _loadPeople(); // Refresh the list from the database
+                      _loadPeople();
                     }
                   },
                   trailing: IconButton(
@@ -193,21 +187,11 @@ class _PeoplePageState extends State<PeoplePage> {
             context: context,
             builder: (BuildContext context) {
               String name = '';
-              String email = '';
               return AlertDialog(
                 title: const Text('Add Person'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      onChanged: (value) => name = value,
-                      decoration: const InputDecoration(labelText: 'Name'),
-                    ),
-                    TextField(
-                      onChanged: (value) => email = value,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                    ),
-                  ],
+                content: TextField(
+                  onChanged: (value) => name = value,
+                  decoration: const InputDecoration(labelText: 'Name'),
                 ),
                 actions: [
                   TextButton(
@@ -217,8 +201,8 @@ class _PeoplePageState extends State<PeoplePage> {
                   TextButton(
                     child: const Text('Add'),
                     onPressed: () {
-                      if (name.isNotEmpty && email.isNotEmpty) {
-                        _addPerson(Person(name: name, email: email));
+                      if (name.isNotEmpty) {
+                        _addPerson(Person(name: name, groupIds: []));
                         Navigator.of(context).pop();
                       }
                     },

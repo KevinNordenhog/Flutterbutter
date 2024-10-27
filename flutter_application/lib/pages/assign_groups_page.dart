@@ -52,7 +52,6 @@ class _AssignGroupsPageState extends State<AssignGroupsPage> {
     final updatedPerson = Person(
       id: widget.person.id,
       name: widget.person.name,
-      email: widget.person.email,
       groupIds: _selectedGroupIds,
     );
 

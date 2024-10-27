@@ -12,7 +12,7 @@ class DatabaseHelper {
           "CREATE TABLE groups(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)",
         );
         await db.execute(
-          "CREATE TABLE people(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, groupIds TEXT)",
+          "CREATE TABLE people(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, groupIds TEXT)",
         );
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
