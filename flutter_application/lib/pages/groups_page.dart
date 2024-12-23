@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/database_helper.dart';
-import 'package:flutter_application/pages/group_page.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as path;
+import 'package:flutter_application/pages/group_menu_page.dart';
 
 class Group {
   final int? id;
   final String name;
+  final int? parentId;
 
-  Group({this.id, required this.name});
+  Group({this.id, required this.name, this.parentId});
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
+      'parentId': parentId,
     };
   }
 
@@ -21,6 +22,7 @@ class Group {
     return Group(
       id: map['id'],
       name: map['name'],
+      parentId: map['parentId'],
     );
   }
 }
@@ -48,12 +50,16 @@ class _GroupsPageState extends State<GroupsPage> {
   }
 
   Future<void> _loadGroups() async {
-    final List<Map<String, dynamic>> maps = await _database.query('groups');
+    final List<Map<String, dynamic>> maps = await _database.query(
+      'groups',
+      where: 'parentId IS NULL',
+    );
     setState(() {
       _groups = List.generate(maps.length, (i) {
         return Group(
           id: maps[i]['id'],
           name: maps[i]['name'],
+          parentId: maps[i]['parentId'],
         );
       });
     });
@@ -131,7 +137,7 @@ class _GroupsPageState extends State<GroupsPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => GroupPage(group: group),
+                        builder: (context) => GroupMenuPage(group: group),
                       ),
                     );
                   },

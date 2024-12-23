@@ -59,7 +59,7 @@ class _GroupPageState extends State<GroupPage> {
     final dialogState = _DialogState(
       isNewPerson: true,
       newPersonName: '',
-      selectedPerson: null,
+      selectedPeople: [],
       availablePeople: [],
     );
 
@@ -99,7 +99,7 @@ class _GroupPageState extends State<GroupPage> {
                                 onChanged: (bool? value) {
                                   setDialogState(() {
                                     dialogState.isNewPerson = value!;
-                                    dialogState.selectedPerson = null;
+                                    dialogState.selectedPeople = [];
                                   });
                                 },
                               ),
@@ -136,21 +136,34 @@ class _GroupPageState extends State<GroupPage> {
                             child: Text('No available people to add'),
                           )
                         else
-                          DropdownButtonFormField<Person>(
-                            value: dialogState.selectedPerson,
-                            hint: const Text('Select a person'),
-                            items: dialogState.availablePeople
-                                .map((Person person) {
-                              return DropdownMenuItem<Person>(
-                                value: person,
-                                child: Text(person.name),
-                              );
-                            }).toList(),
-                            onChanged: (Person? value) {
-                              setDialogState(() {
-                                dialogState.selectedPerson = value;
-                              });
-                            },
+                          SizedBox(
+                            width: double.maxFinite,
+                            height: 200,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children:
+                                    dialogState.availablePeople.map((person) {
+                                  return CheckboxListTile(
+                                    dense: true,
+                                    title: Text(person.name),
+                                    value: dialogState.selectedPeople
+                                        .contains(person),
+                                    onChanged: (bool? value) {
+                                      setDialogState(() {
+                                        if (value == true) {
+                                          dialogState.selectedPeople
+                                              .add(person);
+                                        } else {
+                                          dialogState.selectedPeople
+                                              .remove(person);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -170,20 +183,18 @@ class _GroupPageState extends State<GroupPage> {
                       await _addPerson(dialogState.newPersonName);
                       Navigator.pop(context);
                     } else if (!dialogState.isNewPerson &&
-                        dialogState.selectedPerson != null) {
-                      final updatedPerson =
-                          dialogState.selectedPerson!.copyWith(
-                        groupIds: [
-                          ...dialogState.selectedPerson!.groupIds,
-                          widget.group.id!
-                        ],
-                      );
-                      await _database.update(
-                        'people',
-                        updatedPerson.toMap(),
-                        where: 'id = ?',
-                        whereArgs: [updatedPerson.id],
-                      );
+                        dialogState.selectedPeople.isNotEmpty) {
+                      for (var person in dialogState.selectedPeople) {
+                        final updatedPerson = person.copyWith(
+                          groupIds: [...person.groupIds, widget.group.id!],
+                        );
+                        await _database.update(
+                          'people',
+                          updatedPerson.toMap(),
+                          where: 'id = ?',
+                          whereArgs: [updatedPerson.id],
+                        );
+                      }
                       _loadPersons();
                       Navigator.pop(context);
                     }
@@ -227,13 +238,13 @@ class _GroupPageState extends State<GroupPage> {
 class _DialogState {
   bool isNewPerson;
   String newPersonName;
-  Person? selectedPerson;
+  List<Person> selectedPeople;
   List<Person> availablePeople;
 
   _DialogState({
     required this.isNewPerson,
     required this.newPersonName,
-    required this.selectedPerson,
+    required List<Person>? selectedPeople,
     required this.availablePeople,
-  });
+  }) : selectedPeople = selectedPeople ?? [];
 }

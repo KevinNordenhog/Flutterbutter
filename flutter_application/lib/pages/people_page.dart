@@ -4,7 +4,6 @@ import 'package:flutter_application/database_helper.dart';
 import 'package:flutter_application/models/person.dart';
 import 'package:flutter_application/pages/assign_groups_page.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 
 class PeoplePage extends StatefulWidget {
   const PeoplePage({Key? key}) : super(key: key);
