@@ -12,12 +12,6 @@ Smart Features
 4. Hierarchical group structure (groups and sub-groups)
 
 Areas for Potential Enhancement
-Here are some features that could make it even better:
-1. Group size constraints
-2. Group balancing based on attributes (skill level, experience, etc.)
-3. Export/import functionality
-
-Areas for Potential Enhancement
 1. Group size constraints
 2. Group balancing based on attributes (skill level, experience, etc.)
 3. Export/import functionality

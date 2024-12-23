@@ -1,10 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application/database_helper.dart';
 import 'package:flutter_application/models/person.dart';
+import 'package:flutter_application/services/group_service.dart';
 import 'package:flutter_application/pages/groups_page.dart';
-import 'package:sqflite/sqflite.dart';
 
 class SubGroupsPage extends StatefulWidget {
   final Group parentGroup;
@@ -16,89 +15,46 @@ class SubGroupsPage extends StatefulWidget {
 }
 
 class _SubGroupsPageState extends State<SubGroupsPage> {
-  late Database _database;
+  late GroupService _groupService;
   List<Group> _subGroups = [];
   List<Person> _persons = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initDatabase();
+    _initService();
   }
 
-  Future<void> _initDatabase() async {
-    _database = await DatabaseHelper.initializeDatabase();
-    _loadSubGroups();
-    _loadPersons();
+  Future<void> _initService() async {
+    _groupService = await GroupService.getInstance();
+    await _loadData();
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadSubGroups(),
+      _loadPersons(),
+    ]);
   }
 
   Future<void> _loadSubGroups() async {
-    final List<Map<String, dynamic>> maps = await _database.query(
-      'groups',
-      where: 'parentId = ?',
-      whereArgs: [widget.parentGroup.id],
-    );
+    final groups =
+        await _groupService.getGroups(parentId: widget.parentGroup.id);
     setState(() {
-      _subGroups = List.generate(maps.length, (i) => Group.fromMap(maps[i]));
+      _subGroups = groups;
     });
   }
 
   Future<void> _loadPersons() async {
-    final List<Map<String, dynamic>> maps = await _database.query('people');
+    final persons =
+        await _groupService.getPersonsInGroup(widget.parentGroup.id!);
     setState(() {
-      _persons = List.generate(maps.length, (i) {
-        final person = Person.fromMap(maps[i]);
-        if (person.groupIds.contains(widget.parentGroup.id)) {
-          return person;
-        }
-        return null;
-      }).whereType<Person>().toList();
+      _persons = persons;
     });
-  }
-
-  Future<void> _addSubGroup(Group group) async {
-    await _database.insert(
-      'groups',
-      group.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    _loadSubGroups();
-  }
-
-  void _showAddSubGroupDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        String newGroupName = '';
-        return AlertDialog(
-          title: const Text('Create New Sub-Group'),
-          content: TextField(
-            onChanged: (value) {
-              newGroupName = value;
-            },
-            decoration: const InputDecoration(hintText: "Enter sub-group name"),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Create'),
-              onPressed: () {
-                if (newGroupName.isNotEmpty) {
-                  _addSubGroup(Group(
-                    name: newGroupName,
-                    parentId: widget.parentGroup.id,
-                  ));
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showRandomizeDialog() {
@@ -141,8 +97,13 @@ class _SubGroupsPageState extends State<SubGroupsPage> {
                 ),
                 TextButton(
                   child: const Text('Create'),
-                  onPressed: () {
-                    _createRandomGroups(numberOfGroups);
+                  onPressed: () async {
+                    await _groupService.createRandomSubGroups(
+                      widget.parentGroup.id!,
+                      _persons,
+                      numberOfGroups,
+                    );
+                    await _loadData();
                     Navigator.pop(context);
                   },
                 ),
@@ -154,73 +115,16 @@ class _SubGroupsPageState extends State<SubGroupsPage> {
     );
   }
 
-  Future<void> _createRandomGroups(int numberOfGroups) async {
-    if (_persons.isEmpty ||
-        numberOfGroups <= 0 ||
-        numberOfGroups > _persons.length) {
-      return;
-    }
-
-    // First, delete all existing sub-groups of this parent group
-    await _database.delete(
-      'groups',
-      where: 'parentId = ?',
-      whereArgs: [widget.parentGroup.id],
-    );
-
-    // Remove the deleted sub-group IDs from all persons
-    for (var person in _persons) {
-      final updatedPerson = person.copyWith(
-        groupIds:
-            person.groupIds.where((id) => id == widget.parentGroup.id).toList(),
-      );
-      await _database.update(
-        'people',
-        updatedPerson.toMap(),
-        where: 'id = ?',
-        whereArgs: [updatedPerson.id],
-      );
-    }
-
-    // Shuffle the persons list
-    final shuffledPersons = List<Person>.from(_persons)..shuffle();
-
-    // Create the new groups
-    for (var i = 0; i < numberOfGroups; i++) {
-      final group = Group(
-        name: 'Random Group ${i + 1}',
-        parentId: widget.parentGroup.id,
-      );
-
-      final groupId = await _database.insert(
-        'groups',
-        group.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
-      // Assign persons to this group
-      for (var j = i; j < shuffledPersons.length; j += numberOfGroups) {
-        final person = shuffledPersons[j];
-        final updatedPerson = person.copyWith(
-          groupIds: [...person.groupIds, groupId],
-        );
-
-        await _database.update(
-          'people',
-          updatedPerson.toMap(),
-          where: 'id = ?',
-          whereArgs: [updatedPerson.id],
-        );
-      }
-    }
-
-    // Reload both sub-groups and persons to update the view
-    await _loadSubGroups();
-    await _loadPersons();
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Sub-Groups of ${widget.parentGroup.name}'),

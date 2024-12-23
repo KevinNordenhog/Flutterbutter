@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application/database_helper.dart';
 import 'package:flutter_application/models/person.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:flutter_application/services/group_service.dart';
 import 'groups_page.dart';
 
 class AssignGroupsPage extends StatefulWidget {
@@ -14,26 +13,30 @@ class AssignGroupsPage extends StatefulWidget {
 }
 
 class _AssignGroupsPageState extends State<AssignGroupsPage> {
-  late Database _database;
+  late GroupService _groupService;
   List<Group> _groups = [];
   List<int> _selectedGroupIds = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initDatabase();
     _selectedGroupIds = List.from(widget.person.groupIds);
+    _initService();
   }
 
-  Future<void> _initDatabase() async {
-    _database = await DatabaseHelper.initializeDatabase();
-    _loadGroups();
+  Future<void> _initService() async {
+    _groupService = await GroupService.getInstance();
+    await _loadGroups();
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadGroups() async {
-    final List<Map<String, dynamic>> maps = await _database.query('groups');
+    final groups = await _groupService.getGroups();
     setState(() {
-      _groups = List.generate(maps.length, (i) => Group.fromMap(maps[i]));
+      _groups = groups;
     });
   }
 
@@ -48,24 +51,20 @@ class _AssignGroupsPageState extends State<AssignGroupsPage> {
   }
 
   Future<void> _saveAssignedGroups() async {
-    final updatedPerson = Person(
-      id: widget.person.id,
-      name: widget.person.name,
-      groupIds: _selectedGroupIds,
-    );
-
-    await _database.update(
-      'people',
-      updatedPerson.toMap(),
-      where: 'id = ?',
-      whereArgs: [updatedPerson.id],
-    );
-
-    Navigator.pop(context, updatedPerson);
+    await _groupService.updatePersonGroups(widget.person, _selectedGroupIds);
+    Navigator.pop(context, widget.person.copyWith(groupIds: _selectedGroupIds));
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Assign Groups to ${widget.person.name}'),

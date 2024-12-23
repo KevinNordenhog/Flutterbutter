@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application/database_helper.dart';
 import 'package:flutter_application/models/person.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:flutter_application/services/group_service.dart';
 import 'groups_page.dart';
 
 class GroupPage extends StatefulWidget {
@@ -14,30 +13,28 @@ class GroupPage extends StatefulWidget {
 }
 
 class _GroupPageState extends State<GroupPage> {
-  late Database _database;
+  late GroupService _groupService;
   List<Person> _persons = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initDatabase();
+    _initService();
   }
 
-  Future<void> _initDatabase() async {
-    _database = await DatabaseHelper.initializeDatabase();
-    _loadPersons();
+  Future<void> _initService() async {
+    _groupService = await GroupService.getInstance();
+    await _loadPersons();
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadPersons() async {
-    final List<Map<String, dynamic>> maps = await _database.query('people');
+    final persons = await _groupService.getPersonsInGroup(widget.group.id!);
     setState(() {
-      _persons = List.generate(maps.length, (i) {
-        final person = Person.fromMap(maps[i]);
-        if (person.groupIds.contains(widget.group.id)) {
-          return person;
-        }
-        return null;
-      }).whereType<Person>().toList();
+      _persons = persons;
     });
   }
 
@@ -46,16 +43,22 @@ class _GroupPageState extends State<GroupPage> {
       name: name,
       groupIds: [widget.group.id!],
     );
-    await _database.insert(
-      'people',
-      person.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _groupService.addPersonToGroup(person, widget.group.id!,
+        isNewPerson: true);
     _loadPersons();
   }
 
+  Future<void> _addExistingPeople(List<Person> people) async {
+    await _groupService.addPeopleToGroup(people, widget.group.id!);
+    _loadPersons();
+  }
+
+  Future<void> _removePerson(Person person) async {
+    await _groupService.removePersonFromGroup(person, widget.group.id!);
+    await _loadPersons();
+  }
+
   void _showAddPersonDialog() {
-    // Create dialog state outside the builder
     final dialogState = _DialogState(
       isNewPerson: true,
       newPersonName: '',
@@ -69,14 +72,10 @@ class _GroupPageState extends State<GroupPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             Future<void> loadAvailablePeople() async {
-              final List<Map<String, dynamic>> maps =
-                  await _database.query('people');
+              final people =
+                  await _groupService.getAvailablePeople(widget.group.id!);
               setDialogState(() {
-                dialogState.availablePeople = maps
-                    .map((map) => Person.fromMap(map))
-                    .where(
-                        (person) => !person.groupIds.contains(widget.group.id))
-                    .toList();
+                dialogState.availablePeople = people;
               });
             }
 
@@ -184,18 +183,7 @@ class _GroupPageState extends State<GroupPage> {
                       Navigator.pop(context);
                     } else if (!dialogState.isNewPerson &&
                         dialogState.selectedPeople.isNotEmpty) {
-                      for (var person in dialogState.selectedPeople) {
-                        final updatedPerson = person.copyWith(
-                          groupIds: [...person.groupIds, widget.group.id!],
-                        );
-                        await _database.update(
-                          'people',
-                          updatedPerson.toMap(),
-                          where: 'id = ?',
-                          whereArgs: [updatedPerson.id],
-                        );
-                      }
-                      _loadPersons();
+                      await _addExistingPeople(dialogState.selectedPeople);
                       Navigator.pop(context);
                     }
                   },
@@ -210,6 +198,14 @@ class _GroupPageState extends State<GroupPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.group.name),
@@ -221,8 +217,76 @@ class _GroupPageState extends State<GroupPage> {
               itemCount: _persons.length,
               itemBuilder: (context, index) {
                 final person = _persons[index];
-                return ListTile(
-                  title: Text(person.name),
+                return Dismissible(
+                  key: Key(person.id.toString()),
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    ),
+                  ),
+                  direction: DismissDirection.endToStart,
+                  confirmDismiss: (direction) async {
+                    return await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Confirm Removal'),
+                          content:
+                              Text('Remove ${person.name} from this group?'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Remove'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  onDismissed: (direction) {
+                    _removePerson(person);
+                  },
+                  child: ListTile(
+                    title: Text(person.name),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Confirm Removal'),
+                              content: Text(
+                                  'Remove ${person.name} from this group?'),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
+                                  child: const Text('Remove'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (confirmed == true) {
+                          await _removePerson(person);
+                        }
+                      },
+                    ),
+                  ),
                 );
               },
             ),

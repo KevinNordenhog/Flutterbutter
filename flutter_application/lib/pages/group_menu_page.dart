@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/pages/groups_page.dart';
 import 'package:flutter_application/pages/group_page.dart';
 import 'package:flutter_application/pages/sub_groups_page.dart';
+import 'package:flutter_application/pages/group_history_page.dart';
 
 class GroupMenuPage extends StatelessWidget {
   final Group group;
@@ -36,6 +37,18 @@ class GroupMenuPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => SubGroupsPage(parentGroup: group),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('History'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => GroupHistoryPage(group: group),
                 ),
               );
             },
