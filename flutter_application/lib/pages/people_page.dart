@@ -16,6 +16,7 @@ class _PeoplePageState extends State<PeoplePage> {
   late Database _database;
   List<Person> _people = [];
   String _filter = '';
+  bool _showOnlyUnassigned = false;
 
   @override
   void initState() {
@@ -25,7 +26,7 @@ class _PeoplePageState extends State<PeoplePage> {
 
   Future<void> _initDatabase() async {
     _database = await DatabaseHelper.initializeDatabase();
-    _loadPeople();
+    await _loadPeople();
   }
 
   Future<void> _loadPeople() async {
@@ -55,31 +56,14 @@ class _PeoplePageState extends State<PeoplePage> {
   }
 
   List<Person> _getFilteredPeople() {
+    if (_showOnlyUnassigned) {
+      return _people.where((person) => person.groupIds.isEmpty).toList();
+    }
     return _people
         .where((person) =>
             person.name.toLowerCase().contains(_filter.toLowerCase()))
         .toList();
   }
-
-  // void _showPersonDetails(Person person) {
-  //   showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         title: Text(person.name),
-  //         content: Text('Email: ${person.email}'),
-  //         actions: <Widget>[
-  //           TextButton(
-  //             child: const Text('Close'),
-  //             onPressed: () {
-  //               Navigator.of(context).pop();
-  //             },
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
 
   Future<void> _deletePerson(int id) async {
     await _database.delete(
@@ -122,9 +106,24 @@ class _PeoplePageState extends State<PeoplePage> {
   Widget build(BuildContext context) {
     final filteredPeople = _getFilteredPeople();
     return Scaffold(
-      // appBar: AppBar(
-      //   title: const Text('People'),
-      // ),
+      appBar: AppBar(
+        title: const Text('People'),
+        actions: [
+          Row(
+            children: [
+              const Text('Show unassigned only'),
+              Switch(
+                value: _showOnlyUnassigned,
+                onChanged: (bool value) {
+                  setState(() {
+                    _showOnlyUnassigned = value;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

@@ -53,7 +53,7 @@ class _GroupsPageState extends State<GroupsPage> {
   late Database _database;
   List<Group> _groups = [];
   GroupStats? _stats;
-  bool _isStatsExpanded = true;
+  bool _isStatsExpanded = false;
 
   @override
   void initState() {
@@ -252,6 +252,35 @@ class _GroupsPageState extends State<GroupsPage> {
     await _loadStats();
   }
 
+  void _showDeleteConfirmation(Group group) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Group'),
+          content: Text(
+              'Are you sure you want to delete ${group.name}? This will remove all sub-groups and remove people from this group.'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
+              onPressed: () {
+                _deleteGroup(group.id!);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showAddGroupDialog() {
     showDialog(
       context: context,
@@ -304,7 +333,7 @@ class _GroupsPageState extends State<GroupsPage> {
                         title: Text(group.name),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete),
-                          onPressed: () => _deleteGroup(group.id!),
+                          onPressed: () => _showDeleteConfirmation(group),
                         ),
                         onTap: () {
                           Navigator.push(
