@@ -55,33 +55,143 @@ class _GroupPageState extends State<GroupPage> {
   }
 
   void _showAddPersonDialog() {
+    // Create dialog state outside the builder
+    final dialogState = _DialogState(
+      isNewPerson: true,
+      newPersonName: '',
+      selectedPerson: null,
+      availablePeople: [],
+    );
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        String newPersonName = '';
-        return AlertDialog(
-          title: const Text('Add New Person'),
-          content: TextField(
-            onChanged: (value) {
-              newPersonName = value;
-            },
-            decoration: const InputDecoration(hintText: "Enter person's name"),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.pop(context),
-            ),
-            TextButton(
-              child: const Text('Add'),
-              onPressed: () {
-                if (newPersonName.isNotEmpty) {
-                  _addPerson(newPersonName);
-                  Navigator.pop(context);
-                }
-              },
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            Future<void> loadAvailablePeople() async {
+              final List<Map<String, dynamic>> maps =
+                  await _database.query('people');
+              setDialogState(() {
+                dialogState.availablePeople = maps
+                    .map((map) => Person.fromMap(map))
+                    .where(
+                        (person) => !person.groupIds.contains(widget.group.id))
+                    .toList();
+              });
+            }
+
+            return AlertDialog(
+              title: const Text('Add Person to Group'),
+              content: FutureBuilder(
+                future: loadAvailablePeople(),
+                builder: (context, snapshot) {
+                  return SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: RadioListTile<bool>(
+                                title: const Text('New Person'),
+                                value: true,
+                                groupValue: dialogState.isNewPerson,
+                                onChanged: (bool? value) {
+                                  setDialogState(() {
+                                    dialogState.isNewPerson = value!;
+                                    dialogState.selectedPerson = null;
+                                  });
+                                },
+                              ),
+                            ),
+                            Expanded(
+                              child: RadioListTile<bool>(
+                                title: const Text('Existing'),
+                                value: false,
+                                groupValue: dialogState.isNewPerson,
+                                onChanged: (bool? value) {
+                                  setDialogState(() {
+                                    dialogState.isNewPerson = value!;
+                                    dialogState.newPersonName = '';
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (dialogState.isNewPerson)
+                          TextField(
+                            onChanged: (value) {
+                              setDialogState(() {
+                                dialogState.newPersonName = value;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              hintText: "Enter person's name",
+                            ),
+                          )
+                        else if (dialogState.availablePeople.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Text('No available people to add'),
+                          )
+                        else
+                          DropdownButtonFormField<Person>(
+                            value: dialogState.selectedPerson,
+                            hint: const Text('Select a person'),
+                            items: dialogState.availablePeople
+                                .map((Person person) {
+                              return DropdownMenuItem<Person>(
+                                value: person,
+                                child: Text(person.name),
+                              );
+                            }).toList(),
+                            onChanged: (Person? value) {
+                              setDialogState(() {
+                                dialogState.selectedPerson = value;
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                TextButton(
+                  child: const Text('Add'),
+                  onPressed: () async {
+                    if (dialogState.isNewPerson &&
+                        dialogState.newPersonName.isNotEmpty) {
+                      await _addPerson(dialogState.newPersonName);
+                      Navigator.pop(context);
+                    } else if (!dialogState.isNewPerson &&
+                        dialogState.selectedPerson != null) {
+                      final updatedPerson =
+                          dialogState.selectedPerson!.copyWith(
+                        groupIds: [
+                          ...dialogState.selectedPerson!.groupIds,
+                          widget.group.id!
+                        ],
+                      );
+                      await _database.update(
+                        'people',
+                        updatedPerson.toMap(),
+                        where: 'id = ?',
+                        whereArgs: [updatedPerson.id],
+                      );
+                      _loadPersons();
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -111,4 +221,19 @@ class _GroupPageState extends State<GroupPage> {
       ),
     );
   }
+}
+
+// Helper class to manage dialog state
+class _DialogState {
+  bool isNewPerson;
+  String newPersonName;
+  Person? selectedPerson;
+  List<Person> availablePeople;
+
+  _DialogState({
+    required this.isNewPerson,
+    required this.newPersonName,
+    required this.selectedPerson,
+    required this.availablePeople,
+  });
 }
