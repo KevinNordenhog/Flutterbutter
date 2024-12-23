@@ -90,6 +90,34 @@ class _PeoplePageState extends State<PeoplePage> {
     _loadPeople();
   }
 
+  void _showDeleteConfirmation(Person person) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Person'),
+          content: Text('Are you sure you want to delete ${person.name}?'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
+              onPressed: () {
+                _deletePerson(person.id!);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredPeople = _getFilteredPeople();
@@ -140,7 +168,7 @@ class _PeoplePageState extends State<PeoplePage> {
                   },
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
-                    onPressed: () => _deletePerson(person.id!),
+                    onPressed: () => _showDeleteConfirmation(person),
                   ),
                 );
               },

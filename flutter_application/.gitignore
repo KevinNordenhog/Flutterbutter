@@ -41,3 +41,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Signing keys and properties
+key.properties
+*.jks
+*.keystore
+*.p12
+*.key
+*.mobileprovision
+*.pepk
+
+# Google Services (e.g. APIs or Firebase)
+google-services.json
+GoogleService-Info.plist
