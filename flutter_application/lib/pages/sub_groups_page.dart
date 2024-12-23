@@ -19,7 +19,6 @@ class _SubGroupsPageState extends State<SubGroupsPage> {
   late Database _database;
   List<Group> _subGroups = [];
   List<Person> _persons = [];
-  bool _justCreatedGroups = false;
 
   @override
   void initState() {
@@ -215,10 +214,6 @@ class _SubGroupsPageState extends State<SubGroupsPage> {
       }
     }
 
-    setState(() {
-      _justCreatedGroups = true;
-    });
-
     // Reload both sub-groups and persons to update the view
     await _loadSubGroups();
     await _loadPersons();
@@ -242,14 +237,7 @@ class _SubGroupsPageState extends State<SubGroupsPage> {
                     .where((person) => person.groupIds.contains(group.id))
                     .toList();
                 return ExpansionTile(
-                  initiallyExpanded: _justCreatedGroups,
-                  onExpansionChanged: (expanded) {
-                    if (_justCreatedGroups) {
-                      setState(() {
-                        _justCreatedGroups = false;
-                      });
-                    }
-                  },
+                  initiallyExpanded: true,
                   title: Text(group.name),
                   children: groupMembers
                       .map((person) => ListTile(
