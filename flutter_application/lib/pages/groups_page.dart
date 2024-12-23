@@ -319,6 +319,9 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Groups'),
+      ),
       body: Column(
         children: [
           _buildStatsCard(),
